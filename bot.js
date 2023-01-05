@@ -1,12 +1,22 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
-const { listOptions } = require('./options');
+const { listOptions, buttonYesOrNo, buttonReturn, buttonSendInfo, buttonChangeInfo } = require('./options');
+
+// const express = require('express');
+// const bodyParser = require('body-parser');
+// const axios = require('axios');
 
 const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
+// const { TELEGRAM_TOKEN, SERVER_URL } = process.env;
+// const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
+// const URI = `webhook/${TELEGRAM_TOKEN}`;
+// const WEBOOK_URL = SERVER_URL + URI;
 
 // ---------- LOGGIN FEATURES ----------
+
 var fs = require('fs');
 var util = require('util');
+const e = require('express');
 var log_file = fs.createWriteStream(__dirname + '/debug.log', { flags: 'a' });
 var log_stdout = process.stdout;
 
@@ -14,110 +24,206 @@ console.log = function (d) { //
 	log_file.write(util.format(d) + '\n');
 	log_stdout.write(util.format(d) + '\n');
 };
+
 // ---------- LOGGIN FEATURES END ----------
 
 // ---------- FAST ANSWERS ----------
+
 var fastAnswers = JSON.parse(fs.readFileSync('./answers.json', 'utf8'));
 // ---------- FAST ANSWERS END ----------
 
 console.log("[DEBUG] Bot is starting...");
 
 
+const locationStorage = {
+	info: []
+};
+const isValidZip = /(^\d{5}$)|(^\d{5}-\d{4}$)/
+const regexPhone = /^\+?([0-9]{4})\)?[-. ]?([0-9]{4})[-. ]?([0-9]{4})$/;
+const validateEmail = (email) => {
+	return String(email)
+		.toLowerCase()
+		.match(
+			/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+		);
+};
+
+const privateID = 556744792;
+
+const localData = {
+	id: '',
+	name: '',
+	prof: '',
+	zipCode: '',
+	phone: '',
+	email: '',
+};
+
+
 const start = () => {
 	bot.on('message', async (msg) => {
-		//bot.sendMessage(msg.chat.id, "Hello dear user"); 
+
+
 		console.log(msg);
 		let date = new Date(msg.date * 1000);
 		let timestamp = date.getDate() + "/" + (date.getMonth() + 1) + "/" + date.getFullYear() + "@" + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
 
 		const text = msg.text;
 		const chatId = msg.chat.id;
+		const name = msg.from.first_name;
+		const data = { data: text };
+
+		localData['id'] = chatId;
+		localData['name'] = name;
 
 		if (text === '/start') {
-			return await bot.sendMessage(chatId, 'Раді бачити, ви потравили в телеграм бот', listOptions);
-			//return bot.sendSticker(chatId, 'https://cdn.tlgrm.app/stickers/ccd/a8d/ccda8d5d-d492-4393-8bb7-e33f77c24907/thumb128.webp');
-
+			await bot.sendMessage(chatId, `${name}, glad to see you got into the telegram bot.`);
+			return await bot.sendMessage(chatId, 'List of ours suggestions.', listOptions);
 		}
 
-		if (text === '/info') {
-			if (msg.from.last_name == undefined) {
-				return bot.sendMessage(chatId, `Тебе звати ${msg.from.first_name}`);
+		if (text === '/list') {
+			return bot.sendMessage(chatId, `List of suggestions`, listOptions);
+		}
+		console.log(localData);
+
+		if (isValidZip.test(text)) {
+			const zipCode = msg.text;
+			localData['zipCode'] = zipCode;
+
+			if (localData['phone'] == '') {
+				return bot.sendMessage(chatId, `Enter your phone`);
 			} else {
-				return bot.sendMessage(chatId, `Тебе звати ${msg.from.first_name}  ${msg.from.last_name}`);
+				bot.sendMessage(chatId, `Check the correctness of the data \n${name}
+				\n${localData['prof']}
+				\n${localData['zipCode']}
+				\n${localData['phone']}
+				\n${localData['email']}`, buttonSendInfo);
 			}
 		}
-		if (text === '/list') {
-			return bot.sendMessage(chatId, `Список пропозицій`, listOptions);
+
+		if (regexPhone.test(text)) {
+			const phone = msg.text;
+			localData['phone'] = phone;
+			if (localData['email'] == '') {
+				await bot.sendMessage(chatId, `Enter your email`);
+			} else {
+				bot.sendMessage(chatId, `Check the correctness of the data \n${name}
+				\n${localData['prof']}
+				\n${localData['zipCode']}
+				\n${localData['phone']}
+				\n${localData['email']}`, buttonSendInfo);
+			}
 		}
-		return bot.sendMessage(chatId, 'Я тебе не розумію. Спробуй ще раз по командах.');
 
+		if (validateEmail(text)) {
+			const email = msg.text;
+			localData['email'] = email;
+			console.log(localData);
 
-		// let msgFromInfo = "";
-		// if (msg.chat.type == "private") {
-		// 	msgFromInfo = msg.from.first_name + "(" + msg.from.id + ")";
-		// } else if (msg.chat.type == "group") {
-		// 	msgFromInfo = msg.from.first_name + "(" + msg.from.id + "/" + msg.chat.title + ")";
-		// }
-
-		// console.log("[INFO](" + timestamp + ") Msg from " + msgFromInfo + ": " + msg.text);
-
-		// if (msg.text != null) {
-		// 	let mex = controlMessage(msg.text);
-		// 	if (mex != null) {
-		// 		//bot.sendMessage(msg.chat.id, mex);
-
-		// 		if (mex.type == "text") {
-		// 			bot.sendMessage(msg.chat.id, mex.reply, { "parse_mode": "HTML" });
-		// 		} else if (mex.type == "response") {
-		// 			bot.sendMessage(msg.chat.id, mex.reply, {
-		// 				"reply_to_message_id": msg.message_id,
-		// 				"parse_mode": "HTML"
-		// 			});
-		// 		} else if (mex.type == "image") {
-		// 			if (mex.reply.includes("gif")) {
-		// 				bot.sendVideo(msg.chat.id, mex.reply);
-		// 			} else {
-		// 				bot.sendPhoto(msg.chat.id, mex.reply);
-		// 			}
-		// 		} else if (mex.type == "audio") {
-		// 			bot.sendVoice(msg.chat.id, mex.reply);
-		// 		} else if (mex.type == "function") {
-		// 			//mex.reply(bot); //Future development
-		// 		}
-		// 	}
-		// }
+			return await bot.sendMessage(chatId, `Check the correctness of the data \n${name}
+			\n${localData['prof']}
+			\n${localData['zipCode']}
+			\n${localData['phone']}
+			\n${localData['email']}`, buttonSendInfo);
+		} else {
+			if (localData['zipCode'] !== ''
+				&& localData['phone'] !== ''
+				&& localData['email'] !== '') {
+				bot.sendMessage(chatId, `${name}. Do you want to go back to the selection ${data}?`, buttonYesOrNo);
+			}
+			const zip = localData['zipCode'];
+			function checkZip(zip) {
+				return zip.length !== 7 && zip == '' ? false : true;
+			}
+			if (!isValidZip.test(text) && checkZip(text) && localData['prof'] !== '') {
+				bot.sendMessage(chatId, `${name}, Example ZIP 81700`);
+			}
+			if (!regexPhone.test(text) && localData['zipCode'] !== '' && localData['email'] == '') {
+				bot.sendMessage(chatId, `${name}, Enter your phone example +380938070439`);
+			}
+			if (!validateEmail(text) &&
+				localData['phone'] !== ''
+				&& localData['zipCode'] !== ''
+				&& localData['email'] == '') {
+				bot.sendMessage(chatId, `${name}, Enter your email example la@gmail.com`);
+			}
+		}
 	});
 
-	// function controlMessage(message) {
 
-	// 	let found = null;
-	// 	//TODO: Should substitute forEach with for (const [triggers, oneFastAnswer] of Object.entries(fastAnswers)), in order to use return inside the loop
-	// 	fastAnswers.forEach(function (fastAnswer) { //For every fast answer
-	// 		fastAnswer.triggers.forEach(function (trigger) { //Check among all triggers
-	// 			let regex = new RegExp("\\b" + trigger + "\\b", "gi");//Search global and case insenstive
-	// 			let regexResult = message.match(regex);
-
-	// 			//console.log("Regex result: " + regexResult);
-
-	// 			if ((regexResult != null) && !found) { //If RegEx matches and wasn't previously found
-	// 				let rnd = Math.floor((Math.random() * (fastAnswer.replies.length)) + 0);
-	// 				found = fastAnswer.replies[rnd];
-	// 				//return fastAnswer.replies[rnd]; //Can't do this with forEach (ahw man, that sucks), see comment above, substitute forEach with for
-	// 			}
-	// 		});
-	// 	});
-
-	// 	return found;
-	// }
-
+	bot.onText(/\/echo (.+)/, (msg, match) => {
+		// 'msg' is the received Message from Telegram
+		// 'match' is the result of executing the regexp above on the text content
+		// of the message
+		const chatId = msg.chat.id;
+		const resp = match[1]; // the captured "whatever"
+		//console.log(resp);
+		// send back the matched "whatever" to the chat
+		bot.sendMessage(chatId, resp);
+	});
 
 	bot.on('callback_query', msg => {
+		//console.log(msg.data);
 		const data = msg.data;
 		const chatId = msg.message.chat.id;
-		if (data != '') {
-			bot.sendMessage(chatId, `Ти вибрав ${data}`);
+		const name = msg.from.first_name;
+
+		if (data == 'Front end'
+			|| data == 'Back end'
+			|| data == 'Design'
+			|| data == 'QA'
+			|| data == 'SMM'
+			&& data != 'Yes'
+			&& data !== 'No'
+			&& data !== 'Return') {
+			var prof = msg.data;
+
+			bot.sendMessage(chatId, `${name}. Do you want to go back to the selection ${data}?`, buttonYesOrNo);
+
 		}
-		console.log(msg);
+		if (data == 'Change info') {
+			bot.sendMessage(chatId, `${name}. Do you want to go back to the selection?`, buttonChangeInfo);
+		}
+		if (data == 'Send info') {
+			bot.sendMessage(chatId, `Check the correctness of the data \n${name}
+			\n${localData['prof']}
+			\n${localData['zipCode']}
+			\n${localData['phone']}
+			\n${localData['email']}`);
+		}
+		if (data == 'Yes') {
+			localData['prof'] = prof;
+			// checkYes(data);
+			if (localData['zipCode'] == '') {
+				bot.sendMessage(chatId, `${name}, Enter your ZIP`);
+			} else {
+				bot.sendMessage(chatId, `Check the correctness of the data \n${name}
+				\n${localData['prof']}
+				\n${localData['zipCode']}
+				\n${localData['phone']}
+				\n${localData['email']}`, buttonSendInfo);
+			}
+		}
+		if (data == 'No') {
+			bot.sendMessage(chatId, `${name}, хочете повернутись до вибору?`, buttonReturn);
+		}
+		if (data == 'Change Zip') {
+			bot.sendMessage(chatId, `${name}, Enter your ZIP`);
+		}
+		if (data == 'Change Phone') {
+			bot.sendMessage(chatId, `${name}, Enter your phone`);
+		}
+		if (data == 'Change Email') {
+			bot.sendMessage(chatId, `${name}, Enter your email`);
+		}
+		if (data == 'Return' || data == 'Choose a service') {
+			bot.sendMessage(chatId, `List of suggestions`, listOptions);
+		}
+		else {
+			bot.sendMessage(chatId, `${name}, ${text}`);
+		}
+
 	});
 }
+
 start();
