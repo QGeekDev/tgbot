@@ -2,10 +2,10 @@
   "name": "telegrambot",
   "version": "1.0.0",
   "description": "A simple little framework to create an autoresponder bot for telegram.",
-  "main": "bot.js",
+  "main": "index.js",
   "scripts": {
-    "dev": "nodemon bot.js",
-    "start": "node  bot.js",
+    "dev": "nodemon index.js",
+    "start": "node  index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
